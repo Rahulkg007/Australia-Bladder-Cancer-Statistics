@@ -1,0 +1,21 @@
+Year,Sex,Type,Cancer_Type,
+1984,Persons,Incidence,Bladder cancer,2192
+1985,Persons,Incidence,Bladder cancer,2285
+1986,Persons,Incidence,Bladder cancer,2151
+1987,Persons,Incidence,Bladder cancer,2082
+1988,Persons,Incidence,Bladder cancer,2167
+2006,Persons,Incidence,Bladder cancer,2279
+2007,Persons,Incidence,Bladder cancer,2193
+2008,Persons,Incidence,Bladder cancer,2292
+2009,Persons,Incidence,Bladder cancer,2343
+2010,Persons,Incidence,Bladder cancer,2457
+1984,Persons,Mortality,Bladder cancer,653
+1985,Persons,Mortality,Bladder cancer,690
+1986,Persons,Mortality,Bladder cancer,679
+1987,Persons,Mortality,Bladder cancer,702
+1988,Persons,Mortality,Bladder cancer,708
+2006,Persons,Mortality,Bladder cancer,900
+2007,Persons,Mortality,Bladder cancer,947
+2008,Persons,Mortality,Bladder cancer,941
+2009,Persons,Mortality,Bladder cancer,1035
+2010,Persons,Mortality,Bladder cancer,1013
