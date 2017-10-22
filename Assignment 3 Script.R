@@ -15,13 +15,27 @@ Bladder.Cancer = Cancer %>%
   filter(`Cancer site/type` == 'C67 Bladder') %>%
   select(Year = `Year of diagnosis`, Cases,Sex) %>%
   group_by(Year,Sex) %>%
-  mutate(Count = sum(Cases)) %>%
-  select(-Cases) %>%
-  unique() %>%
+  summarise(Count = sum(Cases)) %>%
   dcast(Year ~ Sex)
 
 Bladder.Cancer = Bladder.Cancer %>%
   mutate(Total = Males + Females)
+
+Cancer.All = Cancer %>%
+  select(Year = `Year of diagnosis`, Cases,Sex) %>%
+  group_by(Year,Sex) %>%
+  summarise(Count = sum(Cases)) %>%
+  dcast(Year ~ Sex)
+
+Cancer.All = Cancer.All %>%
+  mutate(Total = Males + Females)
+
+Bladder.Cancer.Rate = merge(Bladder.Cancer,Cancer.All, by='Year')
+
+Bladder.Cancer.Rate = Bladder.Cancer.Rate %>%
+  mutate(Total.Rate = Total.x/Total.y * 100,
+         Males.Rate = Males.x/Males.y * 100,
+         Females.Rate = Females.x/Females.y * 100)
 
 updatemenus <- list(
   list(
@@ -164,22 +178,30 @@ subplot(p2, p3) %>%
   )
 
 #Plot 3
-
 Bladder.Cancer.Age = Cancer %>%
   filter(`Cancer site/type` == 'C67 Bladder') %>%
-  select(Age = `Age group at diagnosis`, Cases) %>%
-  group_by(Age) %>%
+  select(Age = `Age group at diagnosis`, Cases, Sex) %>%
+  group_by(Age,Sex) %>%
   summarise(Count = mean(Cases)) %>%
-  mutate(Prop = Count/sum(Count) * 100)
-  
-g1 = ggplot(Bladder.Cancer.Age, aes(Age,Prop)) + 
-  geom_bar(stat='identity',fill='rgba(222,45,38,0.6)') +
-  ggtitle('Bladder Cancer Percentage Distribution by Age\nAustralia, 1984-2013') +
-  xlab('Age Bands') +
-  ylab('Percentage') +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
+  dcast(Age ~ Sex)
 
-ggplotly(g1)
+Bladder.Cancer.Age$Age = Bladder.Cancer.Age$Age %>% 
+  factor()
 
-max(g1$data$Count)
+plot_ly() %>%
+  add_trace(x = ~Bladder.Cancer.Age$Age, y = ~Bladder.Cancer.Age$Males, 
+            type = 'bar', name = 'Males') %>%
+  add_trace(x = ~Bladder.Cancer.Age$Age, y = ~Bladder.Cancer.Age$Females, 
+            type = 'bar', name = 'Females') %>%
+  layout(xaxis = list(title = "Age Bands", tickangle = -45),
+         yaxis = list(title = "No of Cases"),
+         title = 'Average incidence rates of Bladder cancers, by age at diagnosis and sex, Australia 2017',
+         margin = list(l = 100, r = 10, t = 70, b = 150)) %>%
+  add_annotations(xref = 'paper', yref = 'paper',
+                  x = 0, y = -.32,
+                  align = "left",
+                  text = paste('Note<br>1. The rates were age standardised to the 2001 Australian Standard Population and are expressed per 100,000 population.
+                               <br>2. Bar lengths indicate the Average Number of Cases at diagnosis between the periods 1984 and 2013.
+                               <br><b>Source: </b> Australian Cancer Database, 2013'),
+                  font = list(family = 'Arial', size = 10, color = 'rgb(150,150,150)'),
+                  showarrow = FALSE,titleX = TRUE, titleY = TRUE)

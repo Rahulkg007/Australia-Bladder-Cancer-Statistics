@@ -2,15 +2,15 @@
 title: "Bladder Cancer in Australia"
 author: "Rahul K Gupta (s3635232)"
 date: "October 21, 2017"
-subtitle: "Interactive Visualization"
-bibliography: references.bib
 output:
   html_document:
-    theme: default
-    highlight: tango
     dev: svg
-    fig_width: 10 
-    fig_height: 6 
+    fig_height: 6
+    fig_width: 10
+    highlight: tango
+    theme: default
+subtitle: Interactive Visualization
+bibliography: references.bib
 ---
 
 ```{r global_options, include=FALSE}
@@ -23,16 +23,19 @@ require(dplyr)
 opts_chunk$set(warning=FALSE, message=FALSE, echo=FALSE)
 ```
 
-<br><br>
+<br>
 
 # Introduction
 
-Bladder cancer has affected around 2500 Australian every year. 
+This report shows the visualization for [The Converation](https://theconversation.com/australias-high-rates-of-bladder-cancer-deaths-show-why-blood-in-urine-should-always-be-investigated-83214) [@theconversation] article about high rates of bladder cancer in Australia.
+
+Bladder cancer affects around 2500 Australian every year and cause a thousand death every Year. Bladder Cancer diagnosed count is much less compared to prostate, lung, breast and skin Cancer. The incidence rate is decreasing from past two decades. In 1984, it was 4.5%, now dropped to 2.5% in 2013. Male Incidence rate drop is much higher as compared to female in the same period, difference in change is 3.4% for males and 1.5% for females from 1982 to 2013. Below visualization has details of Bladder Cancer Incidence Rate from 1982 to 2013. The data is collected from Australian Institute of Health and Welfare  [@Cancer2017] and Australian Cancer Database [@CancerMortality].<br>
 
 ```{r}
 #load Data
 setwd("C:/Users/rahul/Google Drive/RMIT/Semester 2/Data Visualization/Assignment 3")
 
+# Read Data
 Cancer = fread('data/2013-cancer.csv')
 Cancer$`Year of diagnosis` = as.Date(paste(Cancer$`Year of diagnosis`, 12, 31, sep = "-"))
 
@@ -41,14 +44,31 @@ Bladder.Cancer = Cancer %>%
   filter(`Cancer site/type` == 'C67 Bladder') %>%
   select(Year = `Year of diagnosis`, Cases,Sex) %>%
   group_by(Year,Sex) %>%
-  mutate(Count = sum(Cases)) %>%
-  select(-Cases) %>%
-  unique() %>%
+  summarise(Count = sum(Cases)) %>%
   dcast(Year ~ Sex)
 
 Bladder.Cancer = Bladder.Cancer %>%
   mutate(Total = Males + Females)
 
+# Data for all cancer types
+Cancer.All = Cancer %>%
+  select(Year = `Year of diagnosis`, Cases,Sex) %>%
+  group_by(Year,Sex) %>%
+  summarise(Count = sum(Cases)) %>%
+  dcast(Year ~ Sex)
+
+Cancer.All = Cancer.All %>%
+  mutate(Total = Males + Females)
+
+# Merge to calculate rate
+Bladder.Cancer.Rate = merge(Bladder.Cancer,Cancer.All, by='Year')
+
+Bladder.Cancer.Rate = Bladder.Cancer.Rate %>%
+  mutate(Total.Rate = Total.x/Total.y * 100,
+         Males.Rate = Males.x/Males.y * 100,
+         Females.Rate = Females.x/Females.y * 100)
+
+# list for plotly 3 time series plot
 updatemenus <- list(
   list(
     active = 0,
@@ -71,31 +91,50 @@ updatemenus <- list(
   )
 )
 
-p1 = plot_ly(data = Bladder.Cancer) %>%
-  add_lines(x=~Year, y=~Total, name = "Persons", line = list(color='#636363'),
-            text = ~paste("<b><i>Year</i></b> : ", as.character(Bladder.Cancer$Year,'%Y'), 
-                          "<br><i><b>Number of Cases</i></b> : ", Bladder.Cancer$Total)) %>%
-  add_lines(x=~Year, y=~Males, name = "Males", visible = "legendonly", line = list(color='#3182bd'),
-            text = ~paste("Male Statistics<br>",
-                          "<b><i>Year</i></b> : ", as.character(Bladder.Cancer$Year,'%Y'), 
-                          "<br><i><b>Number of Cases</i></b> : ", Bladder.Cancer$Males)) %>%
-  add_lines(x=~Year, y=~Females, name = "Females", visible = "legendonly", line = list(color='#fc8d59'), 
-            text = ~paste("Female Statistics<br>",
-                          "<b><i>Year</i></b> : ", as.character(Bladder.Cancer$Year,'%Y'), 
-                          "<br><i><b>Number of Cases</i></b> : ", Bladder.Cancer$Females)) %>%
-  layout(yaxis = list(zeroline = FALSE, title = 'Number of Cases'),
+# Plot
+p1 = plot_ly(data = Bladder.Cancer.Rate) %>%
+  add_lines(x=~Year, y=~Total.Rate, name = "Persons", line = list(color='#636363'),
+            text = ~paste("<i>Year</i>: ", as.character(Bladder.Cancer.Rate$Year,'%Y'), 
+                          "<br><i>Person Bladder Cancer Cases</i>: ", Bladder.Cancer.Rate$Total.x,
+                          "<br><i>Person Total Cancer Cases</i>: ", Bladder.Cancer.Rate$Total.y,
+                          "<br><i>Incidence Rate</i>: ", round(Bladder.Cancer.Rate$Total.Rate,2))) %>%
+  add_lines(x=~Year, y=~Males.Rate, name = "Males", visible = "legendonly", line = list(color='#3182bd'),
+            text = ~paste("<i>Year</i>: ", as.character(Bladder.Cancer.Rate$Year,'%Y'), 
+                          "<br><i>Male Bladder Cancer Cases</i>: ", Bladder.Cancer.Rate$Males.x,
+                          "<br><i>Male Total Cancer Cases</i>: ", Bladder.Cancer.Rate$Males.y,
+                          "<br><i>Incidence Rate</i>: ", round(Bladder.Cancer.Rate$Males.Rate,2))) %>%
+  add_lines(x=~Year, y=~Females.Rate, name = "Females", visible = "legendonly", line = list(color='#fc8d59'), 
+            text = ~paste("<i>Year</i>: ", as.character(Bladder.Cancer.Rate$Year,'%Y'), 
+                          "<br><i>Female Bladder Cancer Cases</i>: ", Bladder.Cancer.Rate$Females.x,
+                          "<br><i>Female Total Cancer Cases</i>: ", Bladder.Cancer.Rate$Females.y,
+                          "<br><i>Incidence Rate</i>: ", round(Bladder.Cancer.Rate$Females.Rate,2))) %>%
+  layout(yaxis = list(zeroline = FALSE, title = 'Incidence Rate'),
          xaxis = list(zeroline = FALSE, title = 'Year'),
-         title = "Bladder Cancer in Australia, 1982 - 2013",
-         updatemenus=updatemenus)
+         title = "Bladder Cancer Incidence Rate in Australia, 1982 - 2013",
+         updatemenus=updatemenus,
+         margin = list(l = 100, r = 10, t = 70, b = 150)) %>%
+  add_annotations(xref = 'paper', yref = 'paper',
+                  x = 0, y = -.3,
+                  align = "left",
+                  text = paste('Incidence Rate is calculated using No of Individual with Incidence/Total Number of Incidence * 100. Cancer Data from 1982 to 2013.
+                               <br><b>Source: </b> Australian Cancer Database, 2013'),
+                  font = list(family = 'Arial', size = 10, color = 'rgb(150,150,150)'),
+                  showarrow = FALSE,titleX = TRUE, titleY = TRUE)
 p1
+plotly_IMAGE(p1, format = "png", out_file = "output.png")
 ```
 
-# second plot
+The next visualization shows the top 10 diagnosed cancer and 5 year relative survival Rate [@IncidenceRate] in Australia. Most common are Prostate cancer, Breast cancer, Lung cancer, Melanoma of the skin, and Colon cancer, which contribute to more than 50% of all types. Among these types, survival rate is increasing over the year except for unknown primary and Bladder Cancer types, where the rate is decreasing at -17.9% and -10.2% respectively. 
+
+Unknown primary site(CUP) cancer is used to describe a metastatic cancer with an unknown starting point.Abnormal and uncontrolled cell growth in bladder region is termed as bladder cancer. The five-year survival rate of Australians with bladder cancer in 1984 is 68%, reduced to 58% in 2010. 
+
+<br>
 
 ```{r}
 # Read Mortality Data
 survival = fread('data/acimcombinedcounts.csv')
 
+# Get 1988 Survival Data
 survival.1988 = survival %>%
   filter(Year %in% 1984:1988) %>%
   group_by(Cancer_Type,Type) %>%
@@ -104,6 +143,7 @@ survival.1988 = survival %>%
   mutate(Surival_Rate_1988 = (Incidence-Mortality)/Incidence * 100) %>%
   select(-2,-3)
 
+# Get 2010 Survival Data
 survival.2010 = survival %>%
   filter(Year %in% 2006:2010) %>%
   group_by(Cancer_Type,Type) %>%
@@ -112,11 +152,12 @@ survival.2010 = survival %>%
   mutate(Surival_Rate_2010 = (Incidence-Mortality)/Incidence * 100) %>%
   select(-2,-3)
 
+# Merge to calculate change 
 survival.all = merge(survival.1988,survival.2010, by='Cancer_Type')
 survival.all = survival.all %>% 
-  mutate(Change = Surival_Rate_2010 - Surival_Rate_1988) %>%
-  select(-2,-3)
+  mutate(Change = Surival_Rate_2010 - Surival_Rate_1988) 
 
+# Factor top ten Cancer - Obtained from Main data set
 top.Ten = c('Prostate cancer','Breast cancer','Lung cancer', 
             'Melanoma of the skin','Colon cancer','Rectal cancer',
             'Unknown primary site','Bladder cancer',
@@ -124,14 +165,19 @@ top.Ten = c('Prostate cancer','Breast cancer','Lung cancer',
 survival.all = survival.all %>% filter(Cancer_Type %in% top.Ten) 
 survival.all$Cancer_Type = factor(survival.all$Cancer_Type, as.character(rev(top.Ten)))
 
-p2 =  plot_ly(x = ~survival.all$Change, y = ~survival.all$Cancer_Type, name = 'Survival Rate',
+# Survival Plot - First 
+p2 =  plot_ly() %>%
+  add_trace(x = ~survival.all$Change, y = ~survival.all$Cancer_Type, name = 'Survival Change',
               type = 'bar', orientation = 'h',
-              text = paste(round(survival.all$Change),'%'), textposition = 'auto',
-              marker = list(color = c('rgba(222,45,38,0.8)', 'rgba(39, 175, 195, 0.87)',
-                                      'rgba(39, 175, 195, 0.87)', 'rgba(39, 175, 195, 0.87)',
-                                      'rgba(39, 175, 195, 0.87)', 'rgba(39, 175, 195, 0.87)',
-                                      'rgba(39, 175, 195, 0.87)', 'rgba(39, 175, 195, 0.87)',
-                                      'rgba(39, 175, 195, 0.87)', 'rgba(222,45,38,0.8)'),
+              text = ~paste('<b>',survival.all$Cancer_Type, '</b><br>',
+                '<i>Survival Rate in 1984 - 1988: </i>',round(survival.all$Surival_Rate_1988,2),'%<br>',
+                           '<i>Survival Rate in 2006 - 2010: </i>',round(survival.all$Surival_Rate_2010,2),'%<br>',
+                           '<i>Survival Rate:</i>',round(survival.all$Change,2),'%'), 
+              marker = list(color = c('rgba(222,45,38,0.6)', 'rgba(0, 161, 190, 0.7)',
+                                      'rgba(0, 161, 190, 0.7)', 'rgba(0, 161, 190, 0.7)',
+                                      'rgba(0, 161, 190, 0.7)', 'rgba(0, 161, 190, 0.7)',
+                                      'rgba(0, 161, 190, 0.7)', 'rgba(0, 161, 190, 0.7)',
+                                      'rgba(0, 161, 190, 0.7)', 'rgba(222,45,38,0.6)'),
                             line = list(color = 'rgba(0, 0, 0, .1)', 
                                         width = 1))) %>%
   layout(yaxis = list(showgrid = TRUE, showline = FALSE, showticklabels = TRUE, title = ''),
@@ -139,6 +185,7 @@ p2 =  plot_ly(x = ~survival.all$Change, y = ~survival.all$Cancer_Type, name = 'S
                       showgrid = TRUE, title = 'Percentage Change'),
          margin = list(l = 160)) 
 
+# Plot 2 - Top 10 cancer
 top = Cancer %>%
   select(Cases, `Cancer site/type`) %>%
   group_by(`Cancer site/type`) %>%
@@ -158,17 +205,20 @@ all.cancer = Cancer %>%
   
 all.cancer$`Cancer site/type` = factor(all.cancer$`Cancer site/type`, as.character(rev(top)))
 
-
-p3 = plot_ly(x=~all.cancer$Average, y=~all.cancer$`Cancer site/type`, name = 'Top Diagnosed Cancer',
-             type='bar',
-        text = paste(round(all.cancer$Average)), textposition = 'auto',
-        marker = list(color = 'rgba(39, 175, 195, 0.87)',
-                      line = list(color = 'rgba(0, 0, 0, .1)',
-                                  width = 1))) %>%
+# Plotly - Second Plot
+p3 = plot_ly() %>% 
+  add_trace(x=~all.cancer$Average, y=~all.cancer$`Cancer site/type`, name = 'Cancer Cases',
+            type='bar',
+            text = paste('<b>',all.cancer$`Cancer site/type`,' Cancer</b><br>',
+                         '<i>Average No of Cases in a Year</i>:',round(all.cancer$Average,2)), 
+            marker = list(color = 'rgba(0, 161, 190, 0.7)',
+                          line = list(color = 'rgba(0, 0, 0, .1)',
+                                      width = 1))) %>%
   layout(yaxis = list(showgrid = TRUE, showline = FALSE, showticklabels = FALSE, title = ''),
          xaxis = list(zeroline = FALSE, showline = FALSE, showticklabels = TRUE, 
                       showgrid = TRUE, title = 'Percentage Change')) 
 
+# Combining the plots
 subplot(p2, p3) %>%
   layout(title = '10 most commonly diagnosed Cancers with Survival Rate, Australia, 1984-2013',
          legend = list(x = 0.029, y = 1.038,
@@ -178,45 +228,336 @@ subplot(p2, p3) %>%
          plot_bgcolor = 'rgb(248, 248, 255)') %>%
   add_annotations(xref = 'paper', yref = 'paper',
                   x = -0.14, y = -0.4,
-                   
                   align = "left",
                   text = paste('Note<br>
-1. The rates were age standardised to the 2001 Australian Standard Population and are expressed per 100,000 population.
-<br>2. Bar lengths indicate the change in survival between the periods 1984-1988 and 2009-2013.
+1. Survival Rate is calculated by Average No of Survivals/Total Average Survival * 100
+<br>2. Bar lengths indicate the change in survival, between periods 1984-1988 and 2009-2013.
 <br><b>Source: </b> Australian Cancer Database, 2013
 <br>Australian Cancer Incidence and Mortality (ACIM) books'),
                   font = list(family = 'Arial', size = 10, color = 'rgb(150,150,150)'),
                   showarrow = FALSE,titleX = TRUE, titleY = TRUE) %>%
   layout(showlegend = FALSE,
          annotations = list(
-    list(x = 0.2 , y = 1.05, text = "5-year relative survival (%)", showarrow = F, xref='paper', yref='paper'),
-    list(x = 0.8 , y = 1.05, text = "Most commonly diagnosed Cancer Count", showarrow = F, xref='paper', yref='paper'))
+    list(x = 0.1 , y = 1.05, text = "5-year Relative Survival Rate", showarrow = F, xref='paper', yref='paper'),
+    list(x = 0.92 , y = 1.05, text = "Most commonly diagnosed Cancer - Average Cases", showarrow = F, xref='paper', yref='paper'))
   )
 ```
 
-sadksadhsladha
+<br>
+
+Bladder cancer is significant among men than in women and common in old age over 60 years plus. It is three times more common in men as compared to women. Below visualization shows the distribution of average no of incidences in male and females in Australia. The distribution is negatively skewed with long tail towards early years. 
+
+<br>
 
 ```{r}
-#Plot 3
-
+# Plot 3 - Distribution by age
 Bladder.Cancer.Age = Cancer %>%
   filter(`Cancer site/type` == 'C67 Bladder') %>%
-  select(Age = `Age group at diagnosis`, Cases) %>%
-  group_by(Age) %>%
+  select(Age = `Age group at diagnosis`, Cases, Sex) %>%
+  group_by(Age,Sex) %>%
   summarise(Count = mean(Cases)) %>%
-  mutate(Prop = Count/sum(Count) * 100)
+  dcast(Age ~ Sex)
+
+# Factor age bands
+Bladder.Cancer.Age$Age = Bladder.Cancer.Age$Age %>% 
+  factor(labels = c('0-4', '5-09', '10-14', '15-19', '20-24', '25-29', 
+                    '30-34', '35-39', '40-44', '45-49', '50-54', '55-59', 
+                    '60-64', '65-69', '70-74','75-79', '80-84', '85+','Unknown'))
+
+# Plot Graph
+p4 = plot_ly() %>%
+  add_trace(x = ~Bladder.Cancer.Age$Age, y = ~Bladder.Cancer.Age$Males, 
+            type = 'bar', name = 'Males',
+            text = paste('<i>Age Band</i>:',Bladder.Cancer.Age$Age,' Years<br>',
+          '<i>Average No of Incidence in a Year</i>:',round(Bladder.Cancer.Age$Males,2))) %>%
+  add_trace(x = ~Bladder.Cancer.Age$Age, y = ~Bladder.Cancer.Age$Females, 
+            type = 'bar', name = 'Females',
+            text = paste('<i>Age Band</i>:',Bladder.Cancer.Age$Age,' Years<br>',
+          '<i>Average No of Incidence in a Year</i>:',round(Bladder.Cancer.Age$Females,2))) %>%
+  layout(xaxis = list(title = "Age Bands", tickangle = -45),
+         yaxis = list(title = "No of Cases"),
+         title = 'Average Incidence Count of Bladder Cancers, by Age at Diagnosis and Sex, Australia 2017',
+         margin = list(l = 100, r = 10, t = 70, b = 150),
+         paper_bgcolor = 'rgb(248, 248, 255)',
+         plot_bgcolor = 'rgb(248, 248, 255)') %>%
+  add_annotations(xref = 'paper', yref = 'paper',
+                  x = 0, y = -.4,
+                  align = "left",
+                  text = paste('Bar lengths indicate the Average Number of Cases at diagnosis between the periods 1982 and 2013.
+                               <br><b>Source: </b> Australian Cancer Database, 2013'),
+                  font = list(family = 'Arial', size = 10, color = 'rgb(150,150,150)'),
+                  showarrow = FALSE,titleX = TRUE, titleY = TRUE)
+p4
+```
+
+<br>
+
+The causes for Bladder cancer are smoking, exposure to certain chemicals, genetic and chronic inflammation of the bladder. It is treated using surgery, Immunotherapy and Chemotherapy.
+
+<br>
+
+# Appendix
+
+### Incidence Rate Plot
+
+```{r, eval=FALSE, echo=TRUE}
+
+# Load Libraries
+devtools::dev_mode('TRUE')
+require(knitr)
+require(plotly)
+require(data.table)
+require(dplyr)
+
+#load Data
+setwd("C:/Users/rahul/Google Drive/RMIT/Semester 2/Data Visualization/Assignment 3")
+
+# Read Data
+Cancer = fread('data/2013-cancer.csv')
+Cancer$`Year of diagnosis` = as.Date(paste(Cancer$`Year of diagnosis`, 12, 31, sep = "-"))
+
+# Data Wranging and plot
+Bladder.Cancer = Cancer %>%
+  filter(`Cancer site/type` == 'C67 Bladder') %>%
+  select(Year = `Year of diagnosis`, Cases,Sex) %>%
+  group_by(Year,Sex) %>%
+  summarise(Count = sum(Cases)) %>%
+  dcast(Year ~ Sex)
+
+Bladder.Cancer = Bladder.Cancer %>%
+  mutate(Total = Males + Females)
+
+# Data for all cancer types
+Cancer.All = Cancer %>%
+  select(Year = `Year of diagnosis`, Cases,Sex) %>%
+  group_by(Year,Sex) %>%
+  summarise(Count = sum(Cases)) %>%
+  dcast(Year ~ Sex)
+
+Cancer.All = Cancer.All %>%
+  mutate(Total = Males + Females)
+
+# Merge to calculate rate
+Bladder.Cancer.Rate = merge(Bladder.Cancer,Cancer.All, by='Year')
+
+Bladder.Cancer.Rate = Bladder.Cancer.Rate %>%
+  mutate(Total.Rate = Total.x/Total.y * 100,
+         Males.Rate = Males.x/Males.y * 100,
+         Females.Rate = Females.x/Females.y * 100)
+
+# list for plotly 3 time series plot
+updatemenus <- list(
+  list(
+    active = 0,
+    x = -.125,
+    type= 'buttons',
+    buttons = list(
+      list(
+        label = "Persons",
+        method = "update",
+        args = list(list(visible = c(TRUE, "legendonly", "legendonly" )))),
+      list(
+        label = "Males",
+        method = "update",
+        args = list(list(visible = c("legendonly", TRUE, "legendonly")))),
+      list(
+        label = "Females",
+        method = "update",
+        args = list(list(visible = c("legendonly", "legendonly", TRUE))))
+    )
+  )
+)
+
+# Plot
+p1 = plot_ly(data = Bladder.Cancer.Rate) %>%
+  add_lines(x=~Year, y=~Total.Rate, name = "Persons", line = list(color='#636363'),
+            text = ~paste("<i>Year</i>: ", as.character(Bladder.Cancer.Rate$Year,'%Y'), 
+                          "<br><i>Person Bladder Cancer Cases</i>: ", Bladder.Cancer.Rate$Total.x,
+                          "<br><i>Person Total Cancer Cases</i>: ", Bladder.Cancer.Rate$Total.y,
+                          "<br><i>Incidence Rate</i>: ", round(Bladder.Cancer.Rate$Total.Rate,2))) %>%
+  add_lines(x=~Year, y=~Males.Rate, name = "Males", visible = "legendonly", line = list(color='#3182bd'),
+            text = ~paste("<i>Year</i>: ", as.character(Bladder.Cancer.Rate$Year,'%Y'), 
+                          "<br><i>Male Bladder Cancer Cases</i>: ", Bladder.Cancer.Rate$Males.x,
+                          "<br><i>Male Total Cancer Cases</i>: ", Bladder.Cancer.Rate$Males.y,
+                          "<br><i>Incidence Rate</i>: ", round(Bladder.Cancer.Rate$Males.Rate,2))) %>%
+  add_lines(x=~Year, y=~Females.Rate, name = "Females", visible = "legendonly", line = list(color='#fc8d59'), 
+            text = ~paste("<i>Year</i>: ", as.character(Bladder.Cancer.Rate$Year,'%Y'), 
+                          "<br><i>Female Bladder Cancer Cases</i>: ", Bladder.Cancer.Rate$Females.x,
+                          "<br><i>Female Total Cancer Cases</i>: ", Bladder.Cancer.Rate$Females.y,
+                          "<br><i>Incidence Rate</i>: ", round(Bladder.Cancer.Rate$Females.Rate,2))) %>%
+  layout(yaxis = list(zeroline = FALSE, title = 'Incidence Rate'),
+         xaxis = list(zeroline = FALSE, title = 'Year'),
+         title = "Bladder Cancer Incidence Rate in Australia, 1982 - 2013",
+         updatemenus=updatemenus,
+         margin = list(l = 100, r = 10, t = 70, b = 150)) %>%
+  add_annotations(xref = 'paper', yref = 'paper',
+                  x = 0, y = -.3,
+                  align = "left",
+                  text = paste('Incidence Rate is calculated using No of Individual with Incidence/Total Number of Incidence * 100. Cancer Data from 1982 to 2013.
+                               <br><b>Source: </b> Australian Cancer Database, 2013'),
+                  font = list(family = 'Arial', size = 10, color = 'rgb(150,150,150)'),
+                  showarrow = FALSE,titleX = TRUE, titleY = TRUE)
+p1
+
+```
+### Top Cancer in Australia
+
+```{r, eval=FALSE, echo=TRUE}
+
+# Read Mortality Data
+survival = fread('data/acimcombinedcounts.csv')
+
+# Get 1988 Survival Data
+survival.1988 = survival %>%
+  filter(Year %in% 1984:1988) %>%
+  group_by(Cancer_Type,Type) %>%
+  summarise(Average = mean(Total)) %>%
+  dcast(Cancer_Type ~ Type) %>%
+  mutate(Surival_Rate_1988 = (Incidence-Mortality)/Incidence * 100) %>%
+  select(-2,-3)
+
+# Get 2010 Survival Data
+survival.2010 = survival %>%
+  filter(Year %in% 2006:2010) %>%
+  group_by(Cancer_Type,Type) %>%
+  summarise(Average = mean(Total)) %>%
+  dcast(Cancer_Type ~ Type) %>%
+  mutate(Surival_Rate_2010 = (Incidence-Mortality)/Incidence * 100) %>%
+  select(-2,-3)
+
+# Merge to calculate change 
+survival.all = merge(survival.1988,survival.2010, by='Cancer_Type')
+survival.all = survival.all %>% 
+  mutate(Change = Surival_Rate_2010 - Surival_Rate_1988) 
+
+# Factor top ten Cancer - Obtained from Main data set
+top.Ten = c('Prostate cancer','Breast cancer','Lung cancer', 
+            'Melanoma of the skin','Colon cancer','Rectal cancer',
+            'Unknown primary site','Bladder cancer',
+            'Stomach cancer','Pancreatic cancer')
+survival.all = survival.all %>% filter(Cancer_Type %in% top.Ten) 
+survival.all$Cancer_Type = factor(survival.all$Cancer_Type, as.character(rev(top.Ten)))
+
+# Survival Plot - First 
+p2 =  plot_ly() %>%
+  add_trace(x = ~survival.all$Change, y = ~survival.all$Cancer_Type, name = 'Survival Change',
+              type = 'bar', orientation = 'h',
+              text = ~paste('<b>',survival.all$Cancer_Type, '</b><br>',
+                '<i>Survival Rate in 1984 - 1988: </i>',round(survival.all$Surival_Rate_1988,2),'%<br>',
+                           '<i>Survival Rate in 2006 - 2010: </i>',round(survival.all$Surival_Rate_2010,2),'%<br>',
+                           '<i>Survival Rate:</i>',round(survival.all$Change,2),'%'), 
+              marker = list(color = c('rgba(222,45,38,0.6)', 'rgba(0, 161, 190, 0.7)',
+                                      'rgba(0, 161, 190, 0.7)', 'rgba(0, 161, 190, 0.7)',
+                                      'rgba(0, 161, 190, 0.7)', 'rgba(0, 161, 190, 0.7)',
+                                      'rgba(0, 161, 190, 0.7)', 'rgba(0, 161, 190, 0.7)',
+                                      'rgba(0, 161, 190, 0.7)', 'rgba(222,45,38,0.6)'),
+                            line = list(color = 'rgba(0, 0, 0, .1)', 
+                                        width = 1))) %>%
+  layout(yaxis = list(showgrid = TRUE, showline = FALSE, showticklabels = TRUE, title = ''),
+         xaxis = list(zeroline = FALSE, showline = FALSE, showticklabels = TRUE, 
+                      showgrid = TRUE, title = 'Percentage Change'),
+         margin = list(l = 160)) 
+
+# Plot 2 - Top 10 cancer
+top = Cancer %>%
+  select(Cases, `Cancer site/type`) %>%
+  group_by(`Cancer site/type`) %>%
+  summarise(Count = sum(Cases)) %>%
+  arrange(-Count) %>%
+  head(10)
+top = top$`Cancer site/type`
+
+all.cancer = Cancer %>%
+  filter(`Cancer site/type` %in% top) %>%
+  select(Cases, `Cancer site/type`,`Year of diagnosis`) %>%
+  group_by(`Cancer site/type`,`Year of diagnosis`) %>%
+  summarise(Cases = sum(Cases)) %>%
+  group_by(`Cancer site/type`) %>%
+  summarise(Average = mean(Cases)) %>%
+  arrange(-Average)
   
-g1 = ggplot(Bladder.Cancer.Age, aes(Age,Prop)) + 
-  geom_bar(stat='identity',fill='rgba(222,45,38,0.6)') +
-  ggtitle('Bladder Cancer Percentage Distribution by Age\nAustralia, 1984-2013') +
-  xlab('Age Bands') +
-  ylab('Percentage') +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
+all.cancer$`Cancer site/type` = factor(all.cancer$`Cancer site/type`, as.character(rev(top)))
 
-ggplotly(g1)
+# Plotly - Second Plot
+p3 = plot_ly() %>% 
+  add_trace(x=~all.cancer$Average, y=~all.cancer$`Cancer site/type`, name = 'Cancer Cases',
+            type='bar',
+            text = paste('<b>',all.cancer$`Cancer site/type`,' Cancer</b><br>',
+                         '<i>Average No of Cases in a Year</i>:',round(all.cancer$Average,2)), 
+            marker = list(color = 'rgba(0, 161, 190, 0.7)',
+                          line = list(color = 'rgba(0, 0, 0, .1)',
+                                      width = 1))) %>%
+  layout(yaxis = list(showgrid = TRUE, showline = FALSE, showticklabels = FALSE, title = ''),
+         xaxis = list(zeroline = FALSE, showline = FALSE, showticklabels = TRUE, 
+                      showgrid = TRUE, title = 'Percentage Change')) 
 
-plot_ly(x = ~Bladder.Cancer.Age$Age, y = ~Bladder.Cancer.Age$Prop, type = 'bar', name = '')
+# Combining the plots
+subplot(p2, p3) %>%
+  layout(title = '10 most commonly diagnosed Cancers with Survival Rate, Australia, 1984-2013',
+         legend = list(x = 0.029, y = 1.038,
+                       font = list(size = 10)),
+         margin = list(l = 160, r = 20, t = 70, b = 150),
+         paper_bgcolor = 'rgb(248, 248, 255)',
+         plot_bgcolor = 'rgb(248, 248, 255)') %>%
+  add_annotations(xref = 'paper', yref = 'paper',
+                  x = -0.14, y = -0.4,
+                  align = "left",
+                  text = paste('Note<br>
+1. Survival Rate is calculated by Average No of Survivals/Total Average Survival * 100
+<br>2. Bar lengths indicate the change in survival, between periods 1984-1988 and 2009-2013.
+<br><b>Source: </b> Australian Cancer Database, 2013
+<br>Australian Cancer Incidence and Mortality (ACIM) books'),
+                  font = list(family = 'Arial', size = 10, color = 'rgb(150,150,150)'),
+                  showarrow = FALSE,titleX = TRUE, titleY = TRUE) %>%
+  layout(showlegend = FALSE,
+         annotations = list(
+    list(x = 0.1 , y = 1.05, text = "5-year Relative Survival Rate", showarrow = F, xref='paper', yref='paper'),
+    list(x = 0.92 , y = 1.05, text = "Most commonly diagnosed Cancer - Average Cases", showarrow = F, xref='paper', yref='paper'))
+  )
 
 ```
 
+### Distribution of Incidence
+
+```{r, eval=FALSE, echo=TRUE}
+# Plot 3 - Distribution by age
+Bladder.Cancer.Age = Cancer %>%
+  filter(`Cancer site/type` == 'C67 Bladder') %>%
+  select(Age = `Age group at diagnosis`, Cases, Sex) %>%
+  group_by(Age,Sex) %>%
+  summarise(Count = mean(Cases)) %>%
+  dcast(Age ~ Sex)
+
+# Factor age bands
+Bladder.Cancer.Age$Age = Bladder.Cancer.Age$Age %>% 
+  factor(labels = c('0-4', '5-09', '10-14', '15-19', '20-24', '25-29', 
+                    '30-34', '35-39', '40-44', '45-49', '50-54', '55-59', 
+                    '60-64', '65-69', '70-74','75-79', '80-84', '85+','Unknown'))
+
+# Plot Graph
+p4 = plot_ly() %>%
+  add_trace(x = ~Bladder.Cancer.Age$Age, y = ~Bladder.Cancer.Age$Males, 
+            type = 'bar', name = 'Males',
+            text = paste('<i>Age Band</i>:',Bladder.Cancer.Age$Age,' Years<br>',
+          '<i>Average No of Incidence in a Year</i>:',round(Bladder.Cancer.Age$Males,2))) %>%
+  add_trace(x = ~Bladder.Cancer.Age$Age, y = ~Bladder.Cancer.Age$Females, 
+            type = 'bar', name = 'Females',
+            text = paste('<i>Age Band</i>:',Bladder.Cancer.Age$Age,' Years<br>',
+          '<i>Average No of Incidence in a Year</i>:',round(Bladder.Cancer.Age$Females,2))) %>%
+  layout(xaxis = list(title = "Age Bands", tickangle = -45),
+         yaxis = list(title = "No of Cases"),
+         title = 'Average Incidence Count of Bladder Cancers, by Age at Diagnosis and Sex, Australia 2017',
+         margin = list(l = 100, r = 10, t = 70, b = 150),
+         paper_bgcolor = 'rgb(248, 248, 255)',
+         plot_bgcolor = 'rgb(248, 248, 255)') %>%
+  add_annotations(xref = 'paper', yref = 'paper',
+                  x = 0, y = -.4,
+                  align = "left",
+                  text = paste('Bar lengths indicate the Average Number of Cases at diagnosis between the periods 1982 and 2013.
+                               <br><b>Source: </b> Australian Cancer Database, 2013'),
+                  font = list(family = 'Arial', size = 10, color = 'rgb(150,150,150)'),
+                  showarrow = FALSE,titleX = TRUE, titleY = TRUE)
+p4
+
+```
+# References
